@@ -9,7 +9,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
-
+struct uprockernel;
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -120,6 +120,15 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+int 				dump(int pid, void* addr, void* buffer, int size);
+int              getprocinfo(int pid, struct uprockernel *up);
+int 				thread_create(void *func, void *arg, void *stack);
+//void(*fcn)(void*), void *arg, void *stack
+int 				thread_join(void);
+int 				thread_exit(void);
+
+
+
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -185,6 +194,11 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
+pte_t*          walkpgdir(pde_t *pgdir, const void *va, int alloc);
+
+
+
+
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

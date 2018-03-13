@@ -29,8 +29,7 @@ acquire(struct spinlock *lk)
     panic("acquire");
 
   // The xchg is atomic.
-  while(xchg(&lk->locked, 1) != 0)
-    ;
+  while(xchg(&lk->locked, 1) != 0);
 
   // Tell the C compiler and the processor to not move loads or stores
   // past this point, to ensure that the critical section's memory
@@ -51,7 +50,7 @@ release(struct spinlock *lk)
 
   lk->pcs[0] = 0;
   lk->cpu = 0;
-
+  //allocproc
   // Tell the C compiler and the processor to not move loads or stores
   // past this point, to ensure that all the stores in the critical
   // section are visible to other cores before the lock is released.
@@ -85,7 +84,7 @@ getcallerpcs(void *v, uint pcs[])
     pcs[i] = 0;
 }
 
-// Check whether this cpu is holding the lock.
+// Check whether this cpu/process is holding the lock.
 int
 holding(struct spinlock *lock)
 {

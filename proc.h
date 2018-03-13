@@ -32,7 +32,7 @@ struct context {
   uint eip;
 };
 
-enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE, T_ZOMBIE};
 
 // Per-process state
 struct proc {
@@ -56,3 +56,29 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
+
+/*
+ * uroc.h
+ *
+ *  Created on: Feb 28, 2018
+ *      Author: saumi
+ */
+//process name, process id, parent process id, size of process memory, process state,
+
+
+struct uprockernel{
+	int sz;                     // Size of process memory (bytes)
+	int pid;                     // Process ID
+	int parentprocessid;
+	char name[16];               // Process name (debugging)
+	enum procstate state;
+	};
+
+struct pageAnnotation {
+	int heap;                     // Size of process memory (bytes)
+	int guard;                     // Process ID
+	int text;
+	int stack;
+	};
+
+

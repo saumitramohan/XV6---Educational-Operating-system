@@ -31,8 +31,17 @@ printint(int fd, int xx, int base, int sgn)
   if(neg)
     buf[i++] = '-';
 
-  while(--i >= 0)
-    putc(fd, buf[i]);
+  if (base == 16){
+	  while(i < 8){
+		  buf[i++] = '0';
+
+  }
+  }
+
+ 	  while(--i >= 0){
+	  	    putc(fd, buf[i]);
+
+  }
 }
 
 // Print to the given fd. Only understands %d, %x, %p, %s.

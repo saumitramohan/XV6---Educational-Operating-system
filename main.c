@@ -21,7 +21,7 @@ main(void)
   kvmalloc();      // kernel page table
   mpinit();        // detect other processors
   lapicinit();     // interrupt controller
-  seginit();       // segment descriptors
+  seginit();       //  segment descriptors
   picinit();       // disable pic
   ioapicinit();    // another interrupt controller
   consoleinit();   // console hardware
@@ -93,7 +93,6 @@ startothers(void)
       ;
   }
 }
-
 // The boot page table used in entry.S and entryother.S.
 // Page directories (and page tables) must start on page boundaries,
 // hence the __aligned__ attribute.
