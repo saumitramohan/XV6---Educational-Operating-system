@@ -3,15 +3,12 @@ struct rtcdate;
 struct uproc;
 struct pageAnnotation;
 
-
-struct thread_spinlock{
+struct thread_spinlock {
 	uint locked;
-
 };
 
 struct thread_mutex{
 	uint locked;
-
 };
 
 // system calls
@@ -39,9 +36,10 @@ int uptime(void);
 void dump(int pid, void* addr, void* buffer, int size);	// System call signature
 int getprocinfo(int pid, struct uproc *up);
 int thread_create(void(*fcn)(void*), void *arg, void *stack);
-//void(*fcn)(void*), void *arg, void*stack
 int thread_join(void);
 int thread_exit(void);
+int threadperprocess_create(void *func, void *arg, void *stack);
+
 
 // ulib.c
 int stat(char*, struct stat*);
@@ -57,26 +55,24 @@ void* malloc(uint);
 void free(void*);
 int atoi(const char*);
 
-void thread_spin_init(struct thread_spinlock* );
-void thread_spin_lock(struct thread_spinlock* );
-void thread_spin_unlock(struct thread_spinlock*);
-int holding(struct thread_spinlock*);
-//inline uint xchg(volatile uint *addr, uint newval);
-void thread_mutex_init(struct thread_mutex *lk);
-void thread_mutex_lock(struct thread_mutex *lk);
-void thread_mutex_unlock(struct thread_mutex *lk);
-//void yield();
-int holding(struct thread_spinlock *lock);
-int locked(struct thread_mutex *mt);
-//void unlock(struct thread_mutex *mt);
+//void thread_spin_init(struct thread_spinlock* );
+//void thread_spin_lock(struct thread_spinlock* );
+//void thread_spin_unlock(struct thread_spinlock*);
+//int holding(struct thread_spinlock*);
+////inline uint xchg(volatile uint *addr, uint newval);
+//void thread_mutex_init(struct thread_mutex *lk);
+//void thread_mutex_lock(struct thread_mutex *lk);
+//void thread_mutex_unlock(struct thread_mutex *lk);
+////void yield();
+//int holding(struct thread_spinlock *lock);
+//int locked(struct thread_mutex *mt);
+////void unlock(struct thread_mutex *mt);
 
 
 
 static inline uint xchg1(volatile uint *addr, uint newval)
 {
   uint result;
-
-  printf(1,"Inside this static exchange\n");
   // The + in "+m" denotes a read-modify-write operand.
   asm volatile("lock; xchgl %0, %1" :
                "+m" (*addr), "=a" (result) :
@@ -87,12 +83,49 @@ static inline uint xchg1(volatile uint *addr, uint newval)
 
 static inline void yield1() {
 	// For now using sleep, otherwise, planned to make a system call to invoke yield;
-	printf(1,"sleeping");
 	sleep(1);
-
 }
 
 
+
+static inline void thread_spin_init(struct thread_spinlock *lk) {
+	lk->locked = 0;
+}
+
+static inline void thread_spin_lock(struct thread_spinlock *lk) {
+
+	while (xchg1(&lk->locked, 1) != 0) {
+	};
+	__sync_synchronize();
+}
+static inline void thread_spin_unlock(struct thread_spinlock *lk) {
+
+	__sync_synchronize();
+	asm volatile("movl $0, %0" : "+m" (lk->locked) : );
+}
+
+static inline int locked(struct thread_mutex *mt) {
+	return mt->locked != 0;
+}
+
+
+static inline void thread_mutex_init(struct thread_mutex *mt) {
+	mt->locked = 0;
+}
+
+static inline void thread_mutex_lock(struct thread_mutex *mt) {
+
+	while(mt->locked == 1){
+		yield1();
+	}
+	__sync_synchronize();
+	xchg1(&mt->locked, 1);
+}
+
+static inline void thread_mutex_unlock(struct thread_mutex *mt) {
+		__sync_synchronize();
+		asm volatile("movl $0, %0" : "+m" (mt->locked) : );
+}
 
 
 

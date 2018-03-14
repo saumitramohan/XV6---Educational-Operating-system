@@ -61,6 +61,26 @@ int sys_thread_create(void) {
 
 }
 
+int sys_threadperprocess_create(void) {
+
+	char* stack = 0;
+	char* arg = 0;
+	char* functionPtr = 0;
+
+	if (argptr(0, &functionPtr, 4) < 0) {
+		return -1;
+	}
+	if (argptr(1, &arg, 4) < 0) {
+		return -1;
+	}
+	if (argptr(2, &stack, 4) < 0) {
+		return -1;
+	}
+
+	return threadperprocess_create((void*) functionPtr, (void*) arg, stack);
+
+}
+
 int sys_thread_exit(void) {
 //	if ( thread_exit() == -1){
 //		panic("Something wrong with exit");

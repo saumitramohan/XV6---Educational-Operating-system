@@ -123,9 +123,9 @@ void            yield(void);
 int 				dump(int pid, void* addr, void* buffer, int size);
 int              getprocinfo(int pid, struct uprockernel *up);
 int 				thread_create(void *func, void *arg, void *stack);
-//void(*fcn)(void*), void *arg, void *stack
 int 				thread_join(void);
 int 				thread_exit(void);
+int 				threadperprocess_create(void *func, void *arg, void *stack);
 
 
 

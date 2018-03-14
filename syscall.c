@@ -108,6 +108,8 @@ extern int sys_getprocinfo(void);
 extern int sys_thread_create(void);
 extern int sys_thread_join(void);
 extern int sys_thread_exit(void);
+extern int sys_threadperprocess_create(void);
+
 
 
 
@@ -138,6 +140,7 @@ static int (*syscalls[])(void) = {
 [SYS_thread_create] sys_thread_create,
 [SYS_thread_join] sys_thread_join,
 [SYS_thread_exit] sys_thread_exit,
+[SYS_threadperprocess_create] sys_threadperprocess_create,
 };
 
 void

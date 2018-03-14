@@ -12,6 +12,11 @@ struct {
 	struct proc proc[NPROC];
 } ptable;
 
+struct tls {
+	uint tid;
+};
+
+struct tls tls;
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -499,12 +504,6 @@ int dump(int pid, void* startAddresss, void* buffer, int size) {
 		nextPage = (char*) PGROUNDDOWN((uint )from_addr);
 		nextPage = nextPage + PGSIZE;
 
-//		if (!(*pte & PTE_U)) {
-//			cprintf("\n");
-//			cprintf("Guard page accesed::%x",(buffer));
-//			guardPage = buffer;
-//
-//		}
 		// Byte by Byte copy
 		while (index < size && from_addr < nextPage) {
 			memmove(buffer, from_addr, 1);
@@ -521,19 +520,12 @@ int thread_create(void* function_ptr, void* args, void* stack) {
 	int i, pid;
 	struct proc *np;
 	struct proc *curproc = myproc();
+	struct tls;
 
 	// Allocate process.
 	if ((np = allocproc()) == 0) {
 		return -1;
 	}
-
-	// Copy process state from proc.
-		if ((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0) {
-			kfree(np->kstack);
-			np->kstack = 0;
-			np->state = UNUSED;
-			return -1;
-		}
 
 	np->pgdir = curproc->pgdir;
 
@@ -547,22 +539,84 @@ int thread_create(void* function_ptr, void* args, void* stack) {
 	// Check
 	for (i = 0; i < NOFILE; i++)
 		if (curproc->ofile[i])
-			np->ofile[i] = filedup(curproc->ofile[i]);
-
+			np->ofile[i] = (curproc->ofile[i]);
 
 	// Have to check - CWD
-	np->cwd = idup(curproc->cwd);
+	np->cwd = curproc->cwd;
 
 	safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
 	pid = np->pid;
 
-	uint* sp = (uint *) stack;
-	sp += PGSIZE / sizeof(uint);
-	sp -= 1;
+	np->tf->esp = (uint) stack + PGSIZE;
+	np->tf->esp -= 4;
+	uint* sp = (uint*) np->tf->esp;
 	*sp = (uint) args;
-	sp -= 1;
+	np->tf->esp -= 4;
+	sp = (uint*) np->tf->esp;
 	*sp = 0xffffffff;
+
+	np->tf->esp = (uint) sp;
+
+	np->tf->eip = (uint) function_ptr;
+
+	acquire(&ptable.lock);
+
+	np->state = RUNNABLE;
+
+	release(&ptable.lock);
+
+	return pid;
+
+}
+
+int threadperprocess_create(void* function_ptr, void* args, void* stack) {
+
+	int i, pid;
+	struct proc *np;
+	struct proc *curproc = myproc();
+	struct tls;
+
+	// Allocate process.
+	if ((np = allocproc()) == 0) {
+		return -1;
+	}
+
+	np->pgdir = curproc->pgdir;
+
+	np->sz = curproc->sz;
+	np->parent = curproc;
+	*np->tf = *curproc->tf;
+
+	// Clear %eax so that fork returns 0 in the child.
+	np->tf->eax = 0;
+
+	// Check
+	for (i = 0; i < NOFILE; i++)
+		if (curproc->ofile[i])
+			np->ofile[i] = (curproc->ofile[i]);
+
+	// Have to check - CWD
+	np->cwd = curproc->cwd;
+
+	safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+
+	pid = np->pid;
+
+	char* baseAddress = (char*) args;
+	char* stackCursor = (char*) stack;
+
+	uint tid = (uint) ((stackCursor - baseAddress) / PGSIZE);
+	tls.tid = tid;
+
+	np->tf->esp = (uint) stack + PGSIZE;
+	np->tf->esp -= sizeof(tls);
+	uint* sp = (uint*) np->tf->esp;
+	memmove(sp, (void *) &tls, sizeof(tls));
+	np->tf->esp -= 4;
+	sp = (uint*) np->tf->esp;
+	*sp = 0xffffffff;
+
 	np->tf->esp = (uint) sp;
 
 	np->tf->eip = (uint) function_ptr;
@@ -712,51 +766,11 @@ int thread_create(void* function_ptr, void* args, void* stack) {
 //
 int thread_exit() {
 
-//		struct proc *curproc = myproc();
-//		struct proc *p;
-//
-//		if (curproc == initproc)
-//			panic("init exiting");
-//
-//		acquire(&ptable.lock);
-////
-//		wakeup1(curproc->parent);
-//
-//		cprintf("Current exit pid :: %d\n", curproc->pid);
-//
-//		// Pass abandoned children to init.
-//		for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-//			if (p->parent == curproc) {
-//				p->parent = initproc;
-//				if (p->state == ZOMBIE)
-//					wakeup1(initproc);
-//			}
-//		}
-////
-////		// Jump into the scheduler, never to return.
-//		curproc->state = T_ZOMBIE;
-//
-//		sched();
-//		panic("zombie exit");
-
 	struct proc *curproc = myproc();
 	struct proc *p;
-	int fd;
 
 	if (curproc == initproc)
 		panic("init exiting");
-
-	// Close all open files.
-	for (fd = 0; fd < NOFILE; fd++) {
-		if (curproc->ofile[fd]) {
-			fileclose(curproc->ofile[fd]);
-			curproc->ofile[fd] = 0;
-		}
-	}
-
-	begin_op();
-	iput(curproc->cwd);
-	end_op();
 
 	curproc->cwd = 0;
 
@@ -777,7 +791,7 @@ int thread_exit() {
 	}
 
 	// Jump into the scheduler, never to return.
-	curproc->state = ZOMBIE;
+	curproc->state = T_ZOMBIE;
 	sched();
 	panic("zombie exit");
 	return -1;
@@ -785,47 +799,6 @@ int thread_exit() {
 }
 
 int thread_join(void) {
-
-//		struct proc *p;
-//		int havekids;
-//		struct proc *curproc = myproc();
-//
-//		cprintf("\nInside join %d", curproc->pid);
-//
-//		acquire(&ptable.lock);
-//
-//		for (;;) {
-//			// Scan through table looking for exited children.
-//			havekids = 0;
-//			for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-//				if (p->parent != curproc)
-//					continue;
-//				havekids = 1;
-//
-//				if (p->state == T_ZOMBIE) {
-//					// Found one.
-//					cprintf("\nFound a zombie");
-//					p->kstack = 0;
-//					p->pid = 0;
-//					p->parent = 0;
-//					p->name[0] = 0;
-//					p->killed = 0;
-//					p->state = UNUSED;
-//					release(&ptable.lock);
-//				}
-//			}
-//
-//			// No point waiting if we don't have any children.
-//			if (!havekids || curproc->killed) {
-//				release(&ptable.lock);
-//				cprintf("releasing the lock");
-//			}
-//
-//			// Wait for children to exit.  (See wakeup1 call in proc_exit.)
-//			cprintf("\nsleeping");
-//
-//			sleep(curproc, &ptable.lock);  //DOC: wait-sleep
-//		}
 
 	struct proc *p;
 	int havekids, pid;
@@ -839,7 +812,7 @@ int thread_join(void) {
 			if (p->parent != curproc)
 				continue;
 			havekids = 1;
-			if (p->state == ZOMBIE) {
+			if (p->state == T_ZOMBIE) {
 				// Found one.
 				pid = p->pid;
 				kfree(p->kstack);
@@ -897,47 +870,6 @@ int getAnnotations(int pid, struct pageAnnotation *pageAnnotation) {
 			pageAnnotation->guard = index;
 		}
 		index = index + PGSIZE;
-
-//		uint pa = PTE_ADDR(*pte);
-//		v_address = P2V(pa);
-//		from_addr = v_address + delta;
-//
-//		if (!(*pte & PTE_U)) {
-//			cprintf("\n");
-//			cprintf("Guard page accesed::%x", ((int*) buffer));
-//			i += PGSIZE;
-//			buffer += PGSIZE;
-//			flag = 1;
-//		}
-//		nextPage = (char*) PGROUNDDOWN((uint )from_addr);
-//		nextPage = nextPage + PGSIZE;
-//
-//		// Byte by Byte copy
-//		while (index < size && from_addr < nextPage) {
-//			memmove(buffer, from_addr, 1);
-//			buffer = buffer + 1;
-//			from_addr = from_addr + 1;
-//			index = index + 1;
-//		}
-
-		//		if (!(*pte & PTE_U)) {
-		//			cprintf("\n");
-		//			cprintf("Guard page accesed::%x",((int*) buffer));
-		//			i += PGSIZE;
-		//			buffer += PGSIZE;
-		//			flag = 1;
-		//		}
-		//
-		//		if(flag == 0){
-		//			uint pa = PTE_ADDR(*pte);
-		//			address = P2V(pa);
-		//			cprintf("\n");
-		//			cprintf("Address :: %x", ((int*) address));
-		//			memmove(buffer, address, PGSIZE);
-		//			buffer += PGSIZE;
-		//			flag = 0;
-		//
-		//		}
 	}
 	return 0;
 }
