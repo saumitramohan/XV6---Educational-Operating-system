@@ -572,17 +572,17 @@ int thread_create(void* function_ptr, void* args, void* stack) {
 	// 4 - Push fake return address
 	np->tf->esp = (uint) stack + PGSIZE;
 	np->tf->esp -= sizeof(tls);
-	uint* sp = (uint*) np->tf->esp;
-	memmove(sp, (void *) &tls, sizeof(tls));
+	uint* stackpointer = (uint*) np->tf->esp;
+	memmove(stackpointer, (void *) &tls, sizeof(tls));
 
 	np->tf->esp -= 4;
-	sp = (uint*) np->tf->esp;
-	*sp = (uint) args;
+	stackpointer = (uint*) np->tf->esp;
+	*stackpointer = (uint) args;
 	np->tf->esp -= 4;
-	sp = (uint*) np->tf->esp;
-	*sp = 0xffffffff;
+	stackpointer = (uint*) np->tf->esp;
+	*stackpointer = 0xffffffff;
 
-	np->tf->esp = (uint) sp;
+	np->tf->esp = (uint) stackpointer;
 
 	// Point the eip to the function ptr, which the thread is going to execute in the user space when it comes back from the kernel
 	np->tf->eip = (uint) function_ptr;

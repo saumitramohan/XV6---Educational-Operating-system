@@ -183,6 +183,7 @@ UPROGS=\
 	_umalloctest\
 	_threadspinlock\
 	_threadmutex\
+	_threadcv\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
@@ -252,7 +253,7 @@ qemu-nox-gdb: fs.img xv6.img .gdbinit
 EXTRA=\
 	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c dump.c getprocinfo.c\
-	printf.c umalloc.c thread.c perthreadvariable.c cutemacros.c umalloctest.c threadspinlock.c threadmutex.c\
+	printf.c umalloc.c thread.c perthreadvariable.c cutemacros.c umalloctest.c threadspinlock.c threadmutex.c threadcv.c\
 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
 	.gdbinit.tmpl gdbutil\
 

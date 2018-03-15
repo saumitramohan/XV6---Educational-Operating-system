@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
 		balance[i].name[0] = (char) i + 'a';
 	}
 	void *baseAddress = sbrk(0);
+	//void *args = 0;
 	for (i = 0; i < MAX_THREADS; i++) {
 		void* sb = sbrk(4096);
 		thread_create((void *) foo, baseAddress, sb);
