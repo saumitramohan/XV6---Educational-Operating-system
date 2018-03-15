@@ -527,6 +527,7 @@ int thread_create(void* function_ptr, void* args, void* stack) {
 		return -1;
 	}
 
+	// Pointed to parent process page directory , not making copy of it.
 	np->pgdir = curproc->pgdir;
 
 	np->sz = curproc->sz;
@@ -536,21 +537,46 @@ int thread_create(void* function_ptr, void* args, void* stack) {
 	// Clear %eax so that fork returns 0 in the child.
 	np->tf->eax = 0;
 
-	// Check
+	// Not coping the file desc but pointing to it.
 	for (i = 0; i < NOFILE; i++)
 		if (curproc->ofile[i])
 			np->ofile[i] = (curproc->ofile[i]);
 
-	// Have to check - CWD
+	//Not coping the current working directory of the parent but pointing to it.
 	np->cwd = curproc->cwd;
 
 	safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
 	pid = np->pid;
 
+	//int threadTid =  curproc->childThreadCounter;
+
+	//cprintf("Thread id  %d",threadTid);
+
+	// Base address calculated by sbrk(0)
+	char* baseAddress = (char*) args;
+
+	// Address given by each sbrk
+	char* stackCursor = (char*) stack;
+
+	// Calculating thread id using the difference of the above two addresses and dividing it by page size
+	uint tid = (uint) ((stackCursor - baseAddress) / PGSIZE);
+
+	// Using different implementation than sbrk, maintains counter of number of threads per process
+	tls.tid = tid;
+
+	// Steps to construct stack of the process
+	// 1 - Push TLS structure of the top of the stack
+	// 2 - Decrement the sp by the sizeof (tls)
+	// 3 - Push arguments on the stack
+	// 4 - Push fake return address
 	np->tf->esp = (uint) stack + PGSIZE;
-	np->tf->esp -= 4;
+	np->tf->esp -= sizeof(tls);
 	uint* sp = (uint*) np->tf->esp;
+	memmove(sp, (void *) &tls, sizeof(tls));
+
+	np->tf->esp -= 4;
+	sp = (uint*) np->tf->esp;
 	*sp = (uint) args;
 	np->tf->esp -= 4;
 	sp = (uint*) np->tf->esp;
@@ -558,10 +584,12 @@ int thread_create(void* function_ptr, void* args, void* stack) {
 
 	np->tf->esp = (uint) sp;
 
+	// Point the eip to the function ptr, which the thread is going to execute in the user space when it comes back from the kernel
 	np->tf->eip = (uint) function_ptr;
 
 	acquire(&ptable.lock);
 
+	//curproc->childThreadCounter = ++threadTid;
 	np->state = RUNNABLE;
 
 	release(&ptable.lock);
@@ -570,200 +598,6 @@ int thread_create(void* function_ptr, void* args, void* stack) {
 
 }
 
-int threadperprocess_create(void* function_ptr, void* args, void* stack) {
-
-	int i, pid;
-	struct proc *np;
-	struct proc *curproc = myproc();
-	struct tls;
-
-	// Allocate process.
-	if ((np = allocproc()) == 0) {
-		return -1;
-	}
-
-	np->pgdir = curproc->pgdir;
-
-	np->sz = curproc->sz;
-	np->parent = curproc;
-	*np->tf = *curproc->tf;
-
-	// Clear %eax so that fork returns 0 in the child.
-	np->tf->eax = 0;
-
-	// Check
-	for (i = 0; i < NOFILE; i++)
-		if (curproc->ofile[i])
-			np->ofile[i] = (curproc->ofile[i]);
-
-	// Have to check - CWD
-	np->cwd = curproc->cwd;
-
-	safestrcpy(np->name, curproc->name, sizeof(curproc->name));
-
-	pid = np->pid;
-
-	char* baseAddress = (char*) args;
-	char* stackCursor = (char*) stack;
-
-	uint tid = (uint) ((stackCursor - baseAddress) / PGSIZE);
-	tls.tid = tid;
-
-	np->tf->esp = (uint) stack + PGSIZE;
-	np->tf->esp -= sizeof(tls);
-	uint* sp = (uint*) np->tf->esp;
-	memmove(sp, (void *) &tls, sizeof(tls));
-	np->tf->esp -= 4;
-	sp = (uint*) np->tf->esp;
-	*sp = 0xffffffff;
-
-	np->tf->esp = (uint) sp;
-
-	np->tf->eip = (uint) function_ptr;
-
-	acquire(&ptable.lock);
-
-	np->state = RUNNABLE;
-
-	release(&ptable.lock);
-
-	return pid;
-
-}
-
-//int thread_create(void* function_ptr, void* args, void* stack) {
-//	int i, pid;
-//	struct proc *np;
-//	struct proc *curproc = myproc();
-//
-//	// Allocate process.
-//	if ((np = allocproc()) == 0) {
-//		return -1;
-//	}
-//
-//	np->pgdir = curproc->pgdir;
-//	np->sz = curproc->sz;
-//	np->parent = curproc;
-//	*np->tf = *curproc->tf;
-//
-//	// Clear %eax so that fork returns 0 in the child.
-//	np->tf->eax = 0;
-//
-//	for (i = 0; i < NOFILE; i++)
-//		if (curproc->ofile[i])
-//			np->ofile[i] = curproc->ofile[i];
-//	np->cwd = curproc->cwd;
-//
-//	safestrcpy(np->name, curproc->name, sizeof(curproc->name));
-//
-//	pid = np->pid;
-//
-//	np->tf->eip = (uint) function_ptr;
-//
-//	//  preparing stack
-//	uint* ss = (uint*) stack;
-//
-//	ss -= 1;
-//	*(ss) = (uint) args;
-//	ss -= 1;
-//	*(ss) = 0xffffffff;
-//
-//	np->tf->esp = (uint) ss;
-//	//  done preparing stack
-//
-//	acquire(&ptable.lock);
-//	np->state = RUNNABLE;
-//	release(&ptable.lock);
-//	return pid;
-//}
-
-//int thread_create(void *func, void *arg, void *stack) {
-//
-//	int i, pid;
-//	//uint ustack[2];
-//	struct proc *np;
-//	struct proc *curproc = myproc();
-////
-////	cprintf("Current parent process id %d\n", curproc->pid);
-////
-//	// Allocate process.
-//	if ((np = allocproc()) == 0) {
-//		return -1;
-//	}
-//
-//	// Point to the page directory
-//	np->pgdir = curproc->pgdir;
-//
-//	// Same size
-//	np->sz = curproc->sz;
-//
-//	// Parent will be the currect proc
-//	np->parent = curproc;
-//
-////	// DO i want it ?
-//	np->kstack = curproc->kstack;				// This is wrong
-//	// Pointer to stack
-//
-//	// Trap frame pointer
-//	*np->tf = *curproc->tf;
-//
-//	// Clear %eax so that fork returns 0 in the child.
-//	np->tf->eax = 0;
-//
-//	// Point the same file descriptors
-//	for (i = 0; i < NOFILE; i++)
-//		if (curproc->ofile[i]) {
-//			np->ofile[i] = curproc->ofile[i];
-//		}
-//
-//	// Point to the current directory
-//	np->cwd = curproc->cwd;
-//	safestrcpy(np->name, curproc->name, sizeof(curproc->name));
-//	pid = np->pid;
-//
-//	np->tf->eip = (uint) func;
-//
-//
-////	uint* sp = (uint *)stack;
-////	sp += PGSIZE/sizeof(uint);
-////	sp -= 1;
-////	*sp = (uint)arg;
-////	sp -= 1;
-////	*sp = 0xffffffff;
-////	np->tf->esp = (uint)sp;
-//
-////	np->tf->esp = (uint) stack + PGSIZE;
-////	ustack[0] = 0xffffffff;  // fake return PC
-////	ustack[1] = (uint) arg;
-////	np->tf->esp -= 8;
-////
-////	// Copy user stack declared above
-////	// Implemented using idea from exec
-////	if (copyout(np->pgdir, np->tf->esp, ustack, 8) < 0)
-////		return -1;
-//
-////
-//	np->tf->esp = (uint) stack + PGSIZE;
-//	np->tf->esp -= 4;
-//	uint* sp = (uint*)np->tf->esp;
-//	*sp = (uint) arg;
-//	np->tf->esp -= 4;
-//	sp = (uint*)np->tf->esp;
-//	*sp = 0xffffffff;
-//
-//	//void (*fcn)(void *) = func;
-//
-//	np->tf->eip = (uint) func;
-//
-//	acquire(&ptable.lock);
-//
-//	np->state = RUNNABLE;
-//
-//	release(&ptable.lock);
-//
-//	return pid;
-//}
-//
 int thread_exit() {
 
 	struct proc *curproc = myproc();
@@ -772,6 +606,7 @@ int thread_exit() {
 	if (curproc == initproc)
 		panic("init exiting");
 
+	// Point the current working directory to null
 	curproc->cwd = 0;
 
 	acquire(&ptable.lock);
@@ -791,6 +626,7 @@ int thread_exit() {
 	}
 
 	// Jump into the scheduler, never to return.
+	// Assign the thread zombie state, there should be a state to distinguish zombie process and thread.
 	curproc->state = T_ZOMBIE;
 	sched();
 	panic("zombie exit");
@@ -812,9 +648,11 @@ int thread_join(void) {
 			if (p->parent != curproc)
 				continue;
 			havekids = 1;
+			// Checking for Zombie thread.
 			if (p->state == T_ZOMBIE) {
 				// Found one.
 				pid = p->pid;
+				// Clean up the stack
 				kfree(p->kstack);
 				p->kstack = 0;
 				//freevm(p->pgdir);

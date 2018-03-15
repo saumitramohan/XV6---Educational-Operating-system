@@ -1,7 +1,7 @@
 /*
- * threadperprocessvariable.c
+ * perthreadvariable.c
  *
- *  Created on: Mar 14, 2018
+ *  Created on: Mar 12, 2018
  *      Author: saumi
  */
 
@@ -13,10 +13,6 @@
 
 int i;
 
-struct tls {
-	uint tid;
-};
-
 typedef struct balance {
 	char name[32];
 	char amount;
@@ -25,7 +21,7 @@ typedef struct balance {
 balance_t per_thread_balance[MAX_THREADS];
 
 struct thread_spinlock spinlock;
-struct thread_mutex mutexlock;
+struct thread_mutex lock;
 
 volatile int total_balance = 0;
 
@@ -37,54 +33,17 @@ volatile unsigned int delay(unsigned int d) {
 	return i;
 }
 
-void do_work(void *arg) {
-	int i;
-	int old;
-
-	struct balance *b = (struct balance*) arg;
-
-	printf(1, "Starting do_work: s:%s\n", b->name);
-
-	//thread_mutex_lock(&mutexlock);
-
-	for (i = 0; i < b->amount; i++) {
-
-		old = total_balance;
-		delay(100000);
-		total_balance = old + 1;
-
-	}
-
-	//thread_mutex_unlock(&mutexlock);
-
-	printf(1, "Done s:%x\n", b->name);
-
-	//printf(1, "Above exit\n");
-
-	thread_exit();
-	return;
-}
-
-//strt
-int gettid() {
-
-	uint a;
-	uint* stackAddress = &a;
-	uint sa = (uint) stackAddress;
-	uint pgsize = 4096;
-	sa = ((sa) + pgsize - 1) & ~(pgsize - 1);
-	sa -= sizeof(struct tls);
-	return 0;
-}
-
 int foo() {
 
 	int tid = gettid();
-	per_thread_balance[tid].amount += 1;
+	thread_mutex_lock(&lock);
+	per_thread_balance[tid].amount += tid;
+	//printf(1, "\n Thread id - %d, thread amount - %d",tid, per_thread_balance[tid].amount );
+	thread_mutex_unlock(&lock);
 	thread_exit();
+
 	return 0;
 }
-//end
 
 int main(int argc, char *argv[]) {
 
@@ -93,10 +52,14 @@ int main(int argc, char *argv[]) {
 		per_thread_balance[i].amount = 97;
 		per_thread_balance[i].name[0] = (char) i + 'a';
 	}
+
+	thread_mutex_init(&lock);
+
 	void *baseAddress = sbrk(0);
+	//void *args = 0;
 	for (i = 0; i < MAX_THREADS; i++) {
 		void* sb = sbrk(4096);
-		threadperprocess_create((void *) foo, baseAddress, sb);
+		thread_create((void *) foo, baseAddress, sb);
 	}
 
 	for (i = 0; i < MAX_THREADS; i++) {
@@ -104,7 +67,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	for (i = 0; i < MAX_THREADS; i++) {
-		printf(1, "Thread %d -- Balance : %d \n", i, per_thread_balance[i]);
+		printf(1, "Thread number : %d , Name : %s , Balance : %d \n", i, per_thread_balance[i].name,
+				per_thread_balance[i].amount);
 	}
 
 	exit();

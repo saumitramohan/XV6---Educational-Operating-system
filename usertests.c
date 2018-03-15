@@ -434,7 +434,8 @@ mem(void)
   ppid = getpid();
   if((pid = fork()) == 0){
     m1 = 0;
-    while((m2 = malloc(10001)) != 0){
+   while((m2 = malloc(10001)) != 0){
+   // while((m2 = old_malloc(10001)) != 0){
       *(char**)m2 = m1;
       m1 = m2;
     }

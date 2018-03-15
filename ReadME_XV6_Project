@@ -1,0 +1,100 @@
+ReadME_XV6_Project
+ Created on: Mar 14, 2018
+     Author: saumi
+
+thread.c
+
+-> Implemented basic thread creation, join and exit.
+-> No locks is being used in this file.
+
+Creation of a thread - 
+
+	A new light weight process(thread) is allocated which has its own stack, it points to Parent process pgdir, current directory without making 
+	copy of it. A thread local store structure is pushed on the top of the stack, then function arguments and a fake return address.
+
+Creation of join -
+
+	The functions looks for the zombie thread and clean up is done by the parent process in case it is found.
+	Otherwise parent process goes to sleep and waits for child process to exit.
+	
+Creation of exit -
+	
+	The thread is marked as zombie thread.
+	
+
+threadspinlock.c
+	
+	Same functionality as thread.c 
+	
+	Additionally it has -
+	
+	thread_spin_init(&lock);    -- Initializes the spinlock to 0
+	thread_spin_lock(&lock);    -- Puts the spin lock on the thread, the other thread spins in the while loop then the lock is used by one thre
+	thread_spin_lock(&lock);    -- Unlocks the lock, sets the lock variable to zero
+	xchg1 -- Atomic operation which updates the lock variable value to 1 when acquired.
+	
+threadmutexlock.c
+
+	Same functionality as thread.c 
+	
+	Additionally it has -
+	
+	thread_mutex_init(&lock);    -- Initializes the mutex to 0
+	thread_mutex_lock(&lock);    -- Puts the  lock on the thread, the other thread yields when they see the acquired lock, hence, saves the cpu cycle.
+	thread_mutex_lock(&lock);    -- Unlocks the lock, sets the lock variable to zero
+	xchg1 -- Atomic operation which updates the lock variable value to 1 when acquired.
+	
+Extra Credit - 
+
+perthreadvariable.c
+	
+	Implemented perthreadvariable functionality where is  a local variable to a thread a maintained which is not accessible by other threads or the process
+	
+	A structure tls is pushed on the top of the thread stack, which stores the tid of the thread.
+	TID  can be calculated using the base address before spawning of the thread and the address sbrk returns when each thread is created.
+	The difference divided by page size can give us tid of every thread.
+	
+	or 
+		
+	A threadCounter per process is maintained which gives the tid of the thread created and maintains the count of thread per process.
+	
+	
+	gettid () - This functions returns the tid of the thread in the user space.
+	
+	To retrieve the structure, a variable on the stack is declared, which returns the address of the declared variable.
+	Then this address is page rounded up to get the top of the stack.
+	By decrementing this address by the size of the struct, the entire structure can the dereferenced which gives us the tid of the thread.
+	
+cutemacros.c
+
+	To remove the clutter of the array, I have defined macros to access per thread variable.
+	So, whenever the macro name is used, it will replaced by the content of the macros.
+	
+	gettid () - Is being used a earlier.
+	
+	
+	Macros declared as - 
+	
+	#define DEFINE_PER_THREAD(type, name) type name[MAX_THREADS]
+	#define per_thread_balance(name) name[gettid()]
+	
+	Defined as - 
+	
+	DEFINE_PER_THREAD(balance_t, balance)   ---  same as  --- balance_t balance []  --  array of the structure.
+	per_thread_balance(balance).amount   ---  same as ---  balance[gettid()];
+	
+	
+Fixing Malloc and sbrk() - Updated in umalloc.c and sysproc.c
+
+	As the malloc is not thread safe, I have implemented a wrapper over the free() and malloc () function of the malloc.
+	mutual exclusion is used before calling the free() and malloc () to ensure the thread safety.
+	
+	The kernel functions which were already using the malloc and free , were modified to use the unsafe version of malloc as they are not mulitthreaded.
+	
+	Sbrk - Same implementation as malloc.
+	 
+	 
+	
+	
+	
+	

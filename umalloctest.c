@@ -1,3 +1,10 @@
+/*
+ * umalloctest.c
+ *
+ *  Created on: Mar 14, 2018
+ *      Author: saumi
+ */
+
 #include "types.h"
 #include "stat.h"
 #include "user.h"
@@ -6,6 +13,8 @@ struct balance {
 	char name[32];
 	int amount;
 };
+
+struct thread_mutex lock;
 
 volatile int total_balance = 0;
 
@@ -32,29 +41,31 @@ void do_work(void *arg) {
 	}
 
 	printf(1, "Done s:%x\n", b->name);
+
 	thread_exit();
 	return;
 }
 
 int main(int argc, char *argv[]) {
 
+	thread_mutex_init(&lock);
+
 	struct balance b1 = { "b1", 3200 };
-	struct balance b2 = { "b2", 2800 };
 
-	void *s1, *s2;
-	int t1, t2, r1, r2;
+	int i;
+	void * s1;
 
-	s1 = malloc(4096);
-	s2 = malloc(4096);
+	for (i = 0; i < 70; i++) {
+		s1 = malloc(4096);
+		thread_create(do_work, (void*) &b1, s1);
+	}
 
-	t1 = thread_create(do_work, (void*) &b1, s1);
-	t2 = thread_create(do_work, (void*) &b2, s2);
+	for (i = 0; i < 70; i++) {
+		thread_join();
 
-	r1 = thread_join();
-	r2 = thread_join();
+	}
 
-	printf(1, "Threads finished: (%d):%d, (%d):%d, shared balance:%d\n", t1, r1,
-			t2, r2, total_balance);
+	printf(1, "Finished running thread safe malloc test");
 
 	exit();
 }

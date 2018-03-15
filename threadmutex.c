@@ -1,3 +1,11 @@
+/*
+ * threadmutex.c
+ *
+ *  Created on: Mar 13, 2018
+ *      Author: saumi
+ */
+
+
 #include "types.h"
 #include "stat.h"
 #include "user.h"
@@ -8,6 +16,8 @@ struct balance {
 };
 
 volatile int total_balance = 0;
+
+struct thread_mutex lock;
 
 volatile unsigned int delay(unsigned int d) {
 	unsigned int i;
@@ -26,9 +36,15 @@ void do_work(void *arg) {
 	printf(1, "Starting do_work: s:%s\n", b->name);
 
 	for (i = 0; i < b->amount; i++) {
+
+		thread_mutex_lock(&lock);
 		old = total_balance;
 		delay(100000);
 		total_balance = old + 1;
+
+		// Lock released
+		thread_mutex_unlock(&lock);
+
 	}
 
 	printf(1, "Done s:%x\n", b->name);
@@ -40,6 +56,11 @@ int main(int argc, char *argv[]) {
 
 	struct balance b1 = { "b1", 3200 };
 	struct balance b2 = { "b2", 2800 };
+
+	// Initialized the lock
+	thread_mutex_init(&lock);
+
+	printf(1, "Implementation of Mutex\n");
 
 	void *s1, *s2;
 	int t1, t2, r1, r2;
@@ -58,3 +79,4 @@ int main(int argc, char *argv[]) {
 
 	exit();
 }
+

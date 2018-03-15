@@ -38,7 +38,6 @@ int getprocinfo(int pid, struct uproc *up);
 int thread_create(void(*fcn)(void*), void *arg, void *stack);
 int thread_join(void);
 int thread_exit(void);
-int threadperprocess_create(void *func, void *arg, void *stack);
 
 
 // ulib.c
@@ -53,21 +52,14 @@ uint strlen(char*);
 void* memset(void*, int, uint);
 void* malloc(uint);
 void free(void*);
+void old_free(void*);
+void* old_malloc(uint);
+
 int atoi(const char*);
 
-//void thread_spin_init(struct thread_spinlock* );
-//void thread_spin_lock(struct thread_spinlock* );
-//void thread_spin_unlock(struct thread_spinlock*);
-//int holding(struct thread_spinlock*);
-////inline uint xchg(volatile uint *addr, uint newval);
-//void thread_mutex_init(struct thread_mutex *lk);
-//void thread_mutex_lock(struct thread_mutex *lk);
-//void thread_mutex_unlock(struct thread_mutex *lk);
-////void yield();
-//int holding(struct thread_spinlock *lock);
-//int locked(struct thread_mutex *mt);
-////void unlock(struct thread_mutex *mt);
-
+struct tls {
+	uint tid;
+};
 
 
 static inline uint xchg1(volatile uint *addr, uint newval)
@@ -127,6 +119,17 @@ static inline void thread_mutex_unlock(struct thread_mutex *mt) {
 		asm volatile("movl $0, %0" : "+m" (mt->locked) : );
 }
 
+static inline int gettid() {
+
+	uint a;
+	uint* stackAddress = &a;
+	uint sa = (uint) stackAddress;
+	uint pgsize = 4096;
+	sa = ((sa) + pgsize - 1) & ~(pgsize - 1);
+	sa -= sizeof(struct tls);
+	struct tls* tl = (struct tls*)sa;
+	return tl->tid;
+}
 
 
 // Extra implementation

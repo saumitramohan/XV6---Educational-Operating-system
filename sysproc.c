@@ -7,6 +7,9 @@
 #include "mmu.h"
 #include "proc.h"
 
+//struct thread_mutex mutex_lock;
+//uint umalloc_lock_init = 0;
+
 int sys_fork(void) {
 	return fork();
 }
@@ -47,63 +50,28 @@ int sys_thread_create(void) {
 	char* arg = 0;
 	char* functionPtr = 0;
 
-	if (argptr(0, &functionPtr, 4) < 0) {
+	if (argptr(0, &functionPtr, sizeof(int)) < 0) {
 		return -1;
 	}
-	if (argptr(1, &arg, 4) < 0) {
+	if (argptr(1, &arg, sizeof(int)) < 0) {
 		return -1;
 	}
-	if (argptr(2, &stack, 4) < 0) {
+	if (argptr(2, &stack, sizeof(int)) < 0) {
 		return -1;
 	}
 
+	// Calling thread_create method at kernel level
 	return thread_create((void*) functionPtr, (void*) arg, stack);
 
 }
 
-int sys_threadperprocess_create(void) {
-
-	char* stack = 0;
-	char* arg = 0;
-	char* functionPtr = 0;
-
-	if (argptr(0, &functionPtr, 4) < 0) {
-		return -1;
-	}
-	if (argptr(1, &arg, 4) < 0) {
-		return -1;
-	}
-	if (argptr(2, &stack, 4) < 0) {
-		return -1;
-	}
-
-	return threadperprocess_create((void*) functionPtr, (void*) arg, stack);
-
-}
-
 int sys_thread_exit(void) {
-//	if ( thread_exit() == -1){
-//		panic("Something wrong with exit");
-//	}
-//	return 1;
 	return thread_exit();
 }
 
 int sys_thread_join(void) {
 	return thread_join();
 }
-
-//int sys_getAnnotations(void){
-//	int pid;
-//	struct pageAnnotation * pageAnnotation;
-//	argint(0,&pid);
-//	argptr(1,((char**)&pageAnnotation), 4);
-//	if (getAnnotations(pid,pageAnnotation) == 0){
-//		return 0;
-//	}
-//	return -1;
-//
-//}
 
 int sys_exit(void) {
 	exit();
@@ -129,12 +97,18 @@ int sys_getpid(void) {
 int sys_sbrk(void) {
 	int addr;
 	int n;
-
+	//if (umalloc_lock_init == 0) {
+	//	thread_mutex_init(&mutex_lock);
+	//	umalloc_lock_init = 1;
+	//}
+	//thread_mutex_lock(&mutex_lock);
 	if (argint(0, &n) < 0)
 		return -1;
 	addr = myproc()->sz;
 	if (growproc(n) < 0)
 		return -1;
+	//thread_mutex_unlock(&mutex_lock);
+
 	return addr;
 }
 

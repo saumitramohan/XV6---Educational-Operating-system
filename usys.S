@@ -34,6 +34,6 @@ SYSCALL(getprocinfo)
 SYSCALL(thread_create)
 SYSCALL(thread_exit)
 SYSCALL(thread_join)
-SYSCALL(threadperprocess_create)
+
 
 

@@ -25,6 +25,5 @@
 #define SYS_thread_create 24
 #define SYS_thread_join 25
 #define SYS_thread_exit 26
-#define SYS_threadperprocess_create 27
 
 
